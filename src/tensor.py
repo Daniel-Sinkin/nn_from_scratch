@@ -10,9 +10,11 @@ from numbers import Number
 class Operation(Enum):
     NOT_INITIALIZED = auto()
     EXP = auto()
+    LOG = auto()
     ADD = auto()
     MUL = auto()
     SIN = auto()
+    COS = auto()
     SUM = auto()
     POW = auto()
     RELU = auto()
@@ -20,6 +22,8 @@ class Operation(Enum):
     TANH = auto()
     SIGMOID = auto()
     SIGMOID_SWISH = auto()
+    MATMUL = auto()
+    MEAN = auto()
 
 
 class Tensor:
@@ -30,11 +34,11 @@ class Tensor:
         grad_fn: Operation = Operation.NOT_INITIALIZED,
     ):
         self.value = value
-        self.grad = 0.0
+        self.grad = np.zeros_like(value)
         if children is not None:
-            self._children = children
+            self._children: tuple["Tensor"] = children
         else:
-            self._children = tuple()
+            self._children: tuple["Tensor"] = tuple()
         self.grad_fn = grad_fn
 
         # The function that gets invoked on backward propagation
@@ -57,10 +61,16 @@ class Tensor:
             return self.value == other.value
 
         if isinstance(other, torch.Tensor):
-            return np.isclose(self.value, other.detach().numpy()).all()
+            return (
+                np.isclose(self.value, other.detach().numpy()).all()
+                and np.isclose(self.grad, other.grad).all()
+            )
 
         if isinstance(other, np.ndarray):
-            return np.isclose(self.value, other).all()
+            return (
+                np.isclose(self.value, other).all()
+                and np.isclose(self.grad, other.grad.numpy()).all()
+            )
 
         return NotImplemented
 
@@ -70,6 +80,10 @@ class Tensor:
     # https://github.com/pytorch/pytorch/blob/aaef246c74b964ba43f051a4a3e484d25d418f44/torch/_tensor.py#L1068C9-L1068C17
     def __hash__(self) -> int:
         return id(self)
+
+    def zero_grad(self):
+        for node in self.get_all_nodes():
+            node.grad = np.zeros_like(node.value)
 
     def get_all_nodes(self) -> set["Tensor"]:
         """
@@ -114,9 +128,15 @@ class Tensor:
         )
 
         # D add(f(x), g(y)) = (Df(x), Dg(y))
+
+        # Weird numpy broadcasting bug when using += so I'm accumulating explicitly
+        # https://numpy.org/doc/stable/user/basics.broadcasting.html
         def _backward() -> None:
-            self.grad += 1.0 * result.grad
-            other.grad += 1.0 * result.grad
+            self.grad = self.grad + result.grad
+            other.grad = other.grad + result.grad
+
+        result._backward = _backward
+        return result
 
     def __mul__(self, other: "Tensor") -> "Tensor":
         result = Tensor(
@@ -131,12 +151,41 @@ class Tensor:
         result._backward = _backward
         return result
 
+    def matmul(self, other: "Tensor") -> "Tensor":
+        result = Tensor(
+            self.value @ other.value, children=(self, other), grad_fn=Operation.MATMUL
+        )
+
+        def _backward() -> None:
+            self.grad += (result.grad @ other.value.T).reshape(self.value.shape)
+            other.grad += (self.value.T @ result.grad).reshape(other.value.shape)
+
+        result._backward = _backward
+        return result
+
+    def __matmul__(self, other: "Tensor") -> "Tensor":
+        return self.matmul(other)
+
+    @property
+    def T(self) -> "Tensor":
+        return Tensor(self.value.T)
+
     def exp(self) -> "Tensor":
         result = Tensor(np.exp(self.value), children=(self,), grad_fn=Operation.EXP)
 
         # D exp(f(x)) = exp(f(x)) Df(x)
         def _backward() -> None:
-            self.grad += np.exp(self.value) * result.grad
+            self.grad += result.value * result.grad
+
+        result._backward = _backward
+        return result
+
+    def log(self) -> "Tensor":
+        result = Tensor(np.log(self.value), children=(self,), grad_fn=Operation.LOG)
+
+        # D log(f(x)) = Df(x) / f(x)
+        def _backward() -> None:
+            self.grad += (1 / self.value) * result.grad
 
         result._backward = _backward
         return result
@@ -151,12 +200,51 @@ class Tensor:
         result._backward = _backward
         return result
 
-    def sum(self) -> "Tensor":
-        result = Tensor(np.sum(self.value), children=(self,), grad_fn=Operation.SUM)
+    def cos(self) -> "Tensor":
+        result = Tensor(np.cos(self.value), children=(self,), grad_fn=Operation.COS)
 
-        # D (sum_i f_i(x)) = Df_i(x)
+        # D cos(f(x)) = -sin(f(x)) Df(x)
         def _backward() -> None:
-            self.grad += 1.0 * result.grad
+            self.grad += -np.sin(self.value) * result.grad
+
+        result._backward = _backward
+        return result
+
+    def sum(self, axis=None) -> "Tensor":
+        result = Tensor(
+            np.sum(self.value, axis=axis), children=(self,), grad_fn=Operation.SUM
+        )
+
+        if axis is None:
+            grad_shape = np.ones_like(self.value).shape
+        else:
+            grad_shape = list(self.value.shape)
+            if isinstance(axis, int):
+                grad_shape[axis] = 1
+            else:
+                for ax in axis:
+                    grad_shape[ax] = 1
+            grad_shape = tuple(grad_shape)
+
+        def _backward() -> None:
+            self.grad += (np.ones(grad_shape) * result.grad).reshape(self.value.shape)
+
+        result._backward = _backward
+        return result
+
+    def mean(self, axis=None) -> "Tensor":
+        reduced_shape = np.mean(self.value, axis=axis, keepdims=True).shape
+        result = Tensor(
+            np.mean(self.value, axis=axis), children=(self,), grad_fn=Operation.MEAN
+        )
+
+        if axis is None:
+            num_elements: int = np.prod(self.value.shape)
+        else:
+            num_elements: int = self.value.shape[axis]
+
+        def _backward() -> None:
+            self.grad += result.grad * np.ones(reduced_shape) / num_elements
 
         result._backward = _backward
         return result
@@ -175,14 +263,14 @@ class Tensor:
 
     def relu(self) -> "Tensor":
         result = Tensor(
-            np.where(self.value >= 0, self.value, 0),
+            np.where(self.value > 0, self.value, 0),
             children=(self,),
             grad_fn=Operation.RELU,
         )
 
         # D ReLu(f(x)) = Df(x) if f(x) >= 0 and 0 else
         def _backward():
-            self.grad += np.where(self.value >= 0, 1, 0) * result.grad
+            self.grad += np.where(self.value > 0, 1, 0) * result.grad
 
         result._backward = _backward
         return result
@@ -202,12 +290,10 @@ class Tensor:
         result = Tensor(
             np.where(self.value >= 0, 1, alpha) * self.value,
             children=(self,),
-            Operation=Operation.P_RELU,
+            grad_fn=Operation.P_RELU,
         )
 
         # D pReLu(f(x)) = Df(x) when f(x) >= 0 and alpha * Df(x) when f(x) < 0
-        # Proof, done by me :),
-        # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/5_multilayer-perceptrons/1_mlp/mlp_2.ipynb
         def _backward():
             self.grad += np.where(self.value >= 0, 1, alpha) * result.grad
 
@@ -217,5 +303,32 @@ class Tensor:
     def sigmoid(self) -> "Tensor":
         """sigmoid(x) = 1 / (1 + exp(-x))"""
         result = Tensor(
-            1 / (1 + np.exp(-self.value)), children=(self,), Operation=Operation.SIGMOID
+            1 / (1 + np.exp(-self.value)), children=(self,), grad_fn=Operation.SIGMOID
         )
+
+        # D sigmoid(f(x)) = sigmoid(f(x))(1 - sigmoid(f(x))) * f'(x)
+        def _backward():
+            self.grad += result.value * (1 - result.value) * result.grad
+
+        result._backward = _backward
+        return result
+
+    def sigmoid_swish(self, beta) -> "Tensor":
+        """sigmoid_swish(x, beta) = x * sigmoid(x * beta)"""
+        result = Tensor(
+            self.value / (1 + np.exp(-beta * self.value)),
+            children=(self,),
+            grad_fn=Operation.SIGMOID_SWISH,
+        )
+
+        # D sigmoid_swish(x) = sigmoid(beta * x) (1 + x * beta - x * beta * sigmoid(beta x))
+        # Proof, done by me :),
+        # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/5_multilayer-perceptrons/1_mlp/mlp_3.ipynb
+        def _backward():
+            first_term = 1 + self.value * beta + np.exp(self.value * beta)
+            numerator = np.exp(self.value * beta)
+            denominator = (1 + np.exp(self.value * beta)) ** 2
+            self.grad += first_term * numerator / denominator
+
+        result._backward = _backward
+        return result
