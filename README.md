@@ -12,7 +12,7 @@ Unlike nanograd I won't copy any tutorial directly, but I will use them as a ref
     * https://d2l.ai
     * My notes and exercise solutions:
         * https://github.com/Daniel-Sinkin/d2ld
-* Andreij Karpathy
+* Andrej Karpathy
     * LeCun et al., 1989 Reproducing
         * https://github.com/karpathy/lecun1989-repro
     * micrograd
@@ -29,6 +29,9 @@ Unlike nanograd I won't copy any tutorial directly, but I will use them as a ref
         * https://github.com/Daniel-Sinkin/statlearning
 * Book: All of Statistics, Wassermann 2004
     * https://link.springer.com/book/10.1007/978-0-387-21736-9
+    * My notes and exercises solutions:
+        * https://github.com/Daniel-Sinkin/Research-and-Development/tree/main/Books-Courses-Exercises/Wasserman-Statistics
+        * Currently part of my general RnD Repo, should move this to a seperate Repo soon.
 * Coursera: Deep Learning Specialization
     * https://www.coursera.org/specializations/deep-learning
 
