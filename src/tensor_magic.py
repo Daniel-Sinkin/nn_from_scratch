@@ -9,11 +9,11 @@ class TensorMagic:
     makes the code cleaner and easier to read.
     """
 
-    def __init__(self, data):
-        self.data: np.ndarray = data
+    def __init__(self, value):
+        self.value: np.ndarray = value
 
     def __repr__(self) -> str:
-        s: str = self.data.__repr__()
+        s: str = self.value.__repr__()
         s = s.replace("array", "TensorMagic")
         s = s.replace(", dtype=float32)", ")")
         s = s.replace("\n", "\n ")
@@ -21,56 +21,56 @@ class TensorMagic:
         return s
 
     def __str__(self) -> str:
-        return f"Tensor({self.data})"
+        return f"Tensor({self.value})"
 
     def __getitem__(self, key) -> "TensorMagic":
-        return TensorMagic(self.data[key])
+        return TensorMagic(self.value[key])
 
     def __setitem__(self, key, value) -> None:
-        self.data[key] = value
+        self.value[key] = value
 
     def __len__(self) -> int:
-        return len(self.data)
+        return len(self.value)
 
     def __iter__(self):
-        return iter(self.data)
+        return iter(self.value)
 
     # https://peps.python.org/pep-0465/
     def __matmul__(self, other) -> "TensorMagic":
-        return TensorMagic(self.data @ other.data)
+        return TensorMagic(self.value @ other.data)
 
     def __rmatmul__(self, other) -> "TensorMagic":
-        return TensorMagic(other @ self.data)
+        return TensorMagic(other @ self.value)
 
     def __add__(self, other) -> "TensorMagic":
-        return TensorMagic(self.data + other.data)
+        return TensorMagic(self.value + other.data)
 
     def __radd__(self, other) -> "TensorMagic":
-        return TensorMagic(other + self.data)
+        return TensorMagic(other + self.value)
 
     def __sub__(self, other) -> "TensorMagic":
-        return TensorMagic(self.data - other.data)
+        return TensorMagic(self.value - other.data)
 
     def __rsub__(self, other) -> "TensorMagic":
-        return TensorMagic(other - self.data)
+        return TensorMagic(other - self.value)
 
     def __mul__(self, other) -> "TensorMagic":
-        return TensorMagic(self.data * other.data)
+        return TensorMagic(self.value * other.data)
 
     def __rmul__(self, other) -> "TensorMagic":
-        return TensorMagic(other * self.data)
+        return TensorMagic(other * self.value)
 
     def __truediv__(self, other) -> "TensorMagic":
-        return TensorMagic(self.data / other.data)
+        return TensorMagic(self.value / other.data)
 
     def __rtruediv__(self, other) -> "TensorMagic":
-        return TensorMagic(other / self.data)
+        return TensorMagic(other / self.value)
 
     def __pow__(self, other) -> "TensorMagic":
-        return TensorMagic(self.data**other.data)
+        return TensorMagic(self.value**other.data)
 
     def __rpow__(self, other) -> "TensorMagic":
-        return TensorMagic(other**self.data)
+        return TensorMagic(other**self.value)
 
     def __neg__(self) -> "TensorMagic":
-        return TensorMagic(-self.data)
+        return TensorMagic(-self.value)
