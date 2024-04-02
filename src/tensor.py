@@ -8,6 +8,11 @@ from numbers import Number
 
 
 class Operation(Enum):
+    """
+    ID stands for identity and basically means nothing, for Neurons it
+    signifies that we don't have an activation function.
+    """
+
     NOT_INITIALIZED = auto()
     EXP = auto()
     LOG = auto()
@@ -24,6 +29,7 @@ class Operation(Enum):
     SIGMOID_SWISH = auto()
     MATMUL = auto()
     MEAN = auto()
+    ID = auto()
 
 
 class Tensor:
@@ -285,6 +291,7 @@ class Tensor:
         result._backward = _backward
         return result
 
+    # TODO: Actually make alpha a learnable paramter instead of a constant
     def p_relu(self, alpha) -> "Tensor":
         """Parametrized ReLu"""
         result = Tensor(
