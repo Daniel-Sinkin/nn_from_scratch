@@ -13,23 +13,23 @@ class Operation(Enum):
     signifies that we don't have an activation function.
     """
 
-    NOT_INITIALIZED = auto()
-    EXP = auto()
-    LOG = auto()
-    ADD = auto()
-    MUL = auto()
-    SIN = auto()
-    COS = auto()
-    SUM = auto()
-    POW = auto()
-    RELU = auto()
-    P_RELU = auto()
-    TANH = auto()
-    SIGMOID = auto()
-    SIGMOID_SWISH = auto()
-    MATMUL = auto()
-    MEAN = auto()
-    ID = auto()
+  NOT_INITIALIZED = "NOT_INITIALIZED"
+  EXP = "EXP"
+  LOG = "LOG"
+  ADD = "ADD"
+  MUL = "MUL"
+  SIN = "SIN"
+  COS = "COS"
+  SUM = "SUM"
+  POW = "POW"
+  RELU = "RELU"
+  P_RELU = "P_RELU"
+  TANH = "TANH"
+  SIGMOID = "SIGMOID"
+  SIGMOID_SWISH = "SIGMOID_SWISH"
+  MATMUL = "MATMUL"
+  MEAN = "MEAN"
+  ID = "ID"
 
 
 class Tensor:
@@ -39,15 +39,17 @@ class Tensor:
         children: tuple["Tensor"] = None,
         grad_fn: Operation = Operation.NOT_INITIALIZED,
     ):
-        self.value = value
-        self.grad = np.zeros_like(value)
+        self.value: np.ndarray = value
+        self.grad: np.ndarray = np.zeros_like(value)
         if children is not None:
             self._children: tuple["Tensor"] = children
         else:
             self._children: tuple["Tensor"] = tuple()
-        self.grad_fn = grad_fn
+        self.grad_fn: Operation = grad_fn
 
         # The function that gets invoked on backward propagation
+        # Note that this initialization is not the same as initializing with
+        # `None`.
         self._backward: Optional[Callable] = lambda: None
 
     def __repr__(self) -> str:
@@ -162,6 +164,10 @@ class Tensor:
             self.value @ other.value, children=(self, other), grad_fn=Operation.MATMUL
         )
 
+        # https://math.stackexchange.com/questions/1866757/not-understanding-derivative-of-a-matrix-matrix-product
+        # Seems like an okay exercise, maybe I should try to derive it on my own at some point
+        # d(A@B) / dA = D(A@B) @ B^t
+        # d(A@B) / dB = A^t @ D(A@B)
         def _backward() -> None:
             self.grad += (result.grad @ other.value.T).reshape(self.value.shape)
             other.grad += (self.value.T @ result.grad).reshape(other.value.shape)
@@ -189,7 +195,11 @@ class Tensor:
     def log(self) -> "Tensor":
         result = Tensor(np.log(self.value), children=(self,), grad_fn=Operation.LOG)
 
-        # D log(f(x)) = Df(x) / f(x)
+        # D log(f(x)) = (1 / f(x)) Df(x)
+        # Note that this is not (1 / (log(f(x))) Df(x), so we actually want
+        # self.value instead of result.value here. This caused some confusion
+        # before. Compare with the `exp` implementation where we actually
+        # have exp(f(x)).
         def _backward() -> None:
             self.grad += (1 / self.value) * result.grad
 
@@ -260,7 +270,7 @@ class Tensor:
 
         result = Tensor(self.value**power, children=(self,), grad_fn=Operation.POW)
 
-        # D f(x)^c = c f(x)^(c - 1) f'(x)
+        # D f(x)^c = c f(x)^(c - 1) Df(x)
         def _backward() -> None:
             self.grad += power * (self.value ** (power - 1)) * result.grad
 
