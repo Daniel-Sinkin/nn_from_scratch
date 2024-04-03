@@ -24,10 +24,45 @@ class LinearLayer(Module):
         self.seed = seed
         _rng = np.random.default_rng(self.seed)
         self.weight = Tensor(_rng.normal(0, 0.01, (n_out, n_in)).astype(np.float32))
-        self.bias = Tensor(_rng.normal(0, 0.01, size=n_out).astype(np.float32))
+        if bias:
+            self.bias = Tensor(_rng.normal(0, 0.01, size=(1, n_out)).astype(np.float32))
+        else:
+            self.bias = None
 
     def forward(self, X: Tensor) -> Tensor:
-        return X @ self.weight.T + self.bias
+        # X in R^(m x n) where m is num samples, n is num_inputs
+        # W in R^(k x n) where k is n_out => W.T in R^(n x k) => X @ W.T in R^(m x k)
+        # b in R^(1 x k), gets broadcasted to B in R^(m x k)
+        # and we compute X @ W.T + B in R^(m x k) as the forward pass.
+        # TODO: Implement fused ADDMUL(x, y, z) = x * y + z operation
+        temp = X @ self.weight.T
+        return temp + self.bias if self.bias is not None else temp
+
+    def set_weight(self, W: Tensor | np.ndarray):
+        if W.shape != self.weight.shape:
+            raise ValueError(f"{W.shape=} != {self.weight.shape=}")
+
+        if isinstance(W, np.ndarray):
+            W = Tensor(W)
+
+        if not isinstance(W, Tensor):
+            raise TypeError(f"{type(W)=} has to be numpy array or Tensor.")
+
+        # TODO: How should we handle if W already has a gradient? <LINK$2>
+        self.weight = W
+
+    def set_bias(self, b: Tensor | np.ndarray):
+        if b.shape != self.bias.shape:
+            raise ValueError(f"{b.shape=} != {self.bias.shape=}")
+
+        if isinstance(b, np.ndarray):
+            b = Tensor(b)
+
+        if not isinstance(b, Tensor):
+            raise TypeError(f"{type(b)=} has to be numpy array or Tensor.")
+
+        # TODO: How should we handle if b already has a gradient? <LINK$2>
+        self.bias = b
 
     def __repr__(self):
         return f"Layer(n_in={self.weight.shape[1]}, n_out={self.weight.shape[0]}, seed={self.seed})"
@@ -41,11 +76,11 @@ class MLP(Module):
         self,
         n_in: int,
         hiddens: tuple[int],
-        n_out,
+        n_out: int,
         bias: bool = True,
         seed: int = 0x2024_04_3,
     ):
-        self.seed = seed
+        self.seed: int = seed
         _rng = np.random.default_rng(seed)
 
         if len(hiddens) == 0:
