@@ -40,6 +40,7 @@ class Operation(Enum):
     ADD = "ADD"
     SUB = "SUB"
     MUL = "MUL"
+    DIV = "DIV"
     MATMUL = "MATMUL"
 
 
@@ -242,6 +243,57 @@ class Tensor:
 
     def __rmul__(self, other) -> "Tensor":
         return self.__mul__(other)
+
+    def __truediv__(self, other):
+        """Implements the true division (element-wise) between Tensors."""
+        if not isinstance(other, Tensor):
+            # If 'other' is a scalar, convert it to a Tensor.
+            other = Tensor(np.full(self.value.shape, other))
+
+        # Compute the forward pass
+        result = Tensor(
+            self.value / other.value, children=(self, other), grad_fn=Operation.DIV
+        )
+
+        def _backward():
+            # Gradient with respect to the numerator
+            if self.value.shape != result.value.shape:
+                grad_self = np.sum(
+                    result.grad / other.value,
+                    axis=tuple(range(result.grad.ndim - self.grad.ndim)),
+                )
+                for i, dim in enumerate(self.value.shape):
+                    if dim == 1:
+                        grad_self = np.sum(grad_self, axis=i, keepdims=True)
+            else:
+                grad_self = result.grad / other.value
+
+            # Gradient with respect to the denominator
+            if other.value.shape != result.value.shape:
+                grad_other = np.sum(
+                    -self.value * result.grad / (other.value**2),
+                    axis=tuple(range(result.grad.ndim - other.grad.ndim)),
+                )
+                for i, dim in enumerate(other.value.shape):
+                    if dim == 1:
+                        grad_other = np.sum(grad_other, axis=i, keepdims=True)
+            else:
+                grad_other = -self.value * result.grad / (other.value**2)
+
+            self.grad += grad_self
+            other.grad += grad_other
+
+        result._backward = _backward
+        return result
+
+    def __rtruediv__(self, other):
+        """Implements the right true division for scalar / Tensor operations."""
+        if not isinstance(other, Tensor):
+            # Convert 'other' to a Tensor of the same shape as self.value
+            other = Tensor(np.full(self.value.shape, other))
+
+        # Reuse the __truediv__ implementation
+        return other.__truediv__(self)
 
     def matmul(self, other) -> "Tensor":
         result = Tensor(
@@ -499,5 +551,8 @@ class Tensor:
     # and
     # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/4_linear-classification/4_softmax-regression-scratch.ipynb/softmax-regression-scratch_1.ipynb
     def softmax(self) -> torch.Tensor:
-        _exp = np.exp(self.value)
-        _exp / _exp.sum(1, keepdims=True)
+        # Shift the input value by subtracting the max value to prevent overflow
+        _max = self.max()
+        shifted_value = self - _max
+        exp_value = shifted_value.exp()
+        return exp_value / exp_value.sum()
