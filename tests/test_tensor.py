@@ -447,7 +447,7 @@ def test_tensor_autograd_softmax() -> None:
     pa = torch.tensor(x, requires_grad=True)
 
     b = a.softmax()
-    pb = torch.softmax(pa, dim=-1)
+    pb = torch.softmax(pa, dim=0)
 
     assert b == pb
 

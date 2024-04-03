@@ -552,7 +552,7 @@ class Tensor:
     # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/4_linear-classification/4_softmax-regression-scratch.ipynb/softmax-regression-scratch_1.ipynb
     def softmax(self) -> torch.Tensor:
         # Shift the input value by subtracting the max value to prevent overflow
-        _max = self.max()
+        _max = self.max(axis=1)
         shifted_value = self - _max
         exp_value = shifted_value.exp()
         return exp_value / exp_value.sum()
