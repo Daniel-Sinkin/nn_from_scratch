@@ -13,24 +13,31 @@ class Operation(Enum):
     signifies that we don't have an activation function.
     """
 
+    # Reserved
     NOT_INITIALIZED = "NOT_INITIALIZED"
+    ID = "ID"
+
+    # Unary
     EXP = "EXP"
     LOG = "LOG"
-    ADD = "ADD"
-    MUL = "MUL"
     SIN = "SIN"
     COS = "COS"
-    SUM = "SUM"
-    POW = "POW"
     RELU = "RELU"
     P_RELU = "P_RELU"
     TANH = "TANH"
     SIGMOID = "SIGMOID"
     SIGMOID_SWISH = "SIGMOID_SWISH"
-    MATMUL = "MATMUL"
+    POW = "POW"
+    T = "T"  # Transpose
+
+    # Reducing
+    SUM = "SUM"
     MEAN = "MEAN"
-    ID = "ID"
-    T = "T"
+
+    # Binary
+    ADD = "ADD"
+    MUL = "MUL"
+    MATMUL = "MATMUL"
 
 
 class Tensor:
@@ -91,6 +98,14 @@ class Tensor:
     def shape(self) -> tuple[int, ...]:
         return self.value.shape
 
+    @property
+    def dtype(self) -> np.dtype:
+        return self.value.dtype
+
+    @property
+    def ndim(self) -> int:
+        return self.value.ndim
+
     def zero_grad(self):
         for node in self.get_all_nodes():
             node.grad = np.zeros_like(node.value)
@@ -138,12 +153,27 @@ class Tensor:
         )
 
         # D add(f(x), g(y)) = (Df(x), Dg(y))
-
         # Weird numpy broadcasting bug when using += so I'm accumulating explicitly
         # https://numpy.org/doc/stable/user/basics.broadcasting.html
         def _backward() -> None:
-            self.grad = self.grad + result.grad
-            other.grad = other.grad + result.grad
+            for tensor in [self, other]:
+                if tensor.value.shape != result.value.shape:
+                    # Reduce on shape mismatch
+                    grad_tensor = np.sum(
+                        result.grad,
+                        axis=tuple(range(result.grad.ndim - self.grad.ndim)),
+                    )
+                    for i, dim in enumerate(self.value.shape):
+                        # TODO: Check if this shouldn't be accumulating
+                        # TODO: Check behaviour if we have multiple == 1 dims
+                        if dim == 1:
+                            grad_tensor = np.sum(grad_tensor, axis=i, keepdims=True)
+                else:
+                    # If we don't have a shape mismatch we don't have to reduce
+                    grad_tensor = result.grad
+
+                # Increments either by reduced result.grad or but result.grad itself
+                tensor.grad += grad_tensor
 
         result._backward = _backward
         return result
