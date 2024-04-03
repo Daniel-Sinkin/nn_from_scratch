@@ -28,7 +28,7 @@ class Operation(Enum):
     SIGMOID = "SIGMOID"
     SIGMOID_SWISH = "SIGMOID_SWISH"
     POW = "POW"
-    T = "T"  # Transpose
+    TR = "TR"  # Transpose
     MAX = "MAX"
     MIN = "MIN"
 
@@ -326,7 +326,7 @@ class Tensor:
 
     @property
     def T(self) -> "Tensor":
-        result = Tensor(self.value.T, children=(self,), grad_fn=Operation.T)
+        result = Tensor(self.value.T, children=(self,), grad_fn=Operation.TR)
 
         # D(A^T) = (D(A))^T
         def _backward() -> None:

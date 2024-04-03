@@ -4,7 +4,7 @@ from src.tensor import Tensor
 import torch
 
 
-def test_tensor_autograd_complicated():
+def test_tensor_complicated():
     """Tests the autogradient with a compliated expression."""
     x = np.array([[1, 2.3, -7.3], [0, -5.2, 1.7]]).astype(np.float32)
 
@@ -36,7 +36,7 @@ def test_tensor_autograd_complicated():
     assert np.allclose(a.grad, pa.grad)
 
 
-def test_tensor_autograd_relu() -> None:
+def test_tensor_relu() -> None:
     x = np.array([[3.2, 1.1, 7.3], [0, -2, 3.7]]).astype(np.float32)
 
     a = Tensor(x)
@@ -55,7 +55,7 @@ def test_tensor_autograd_relu() -> None:
     assert np.allclose(a.grad, pa.grad)
 
 
-def test_tensor_autograd_exp() -> None:
+def test_tensor_exp() -> None:
     x = np.array([[0.5, -1.5, 2.2], [-0.9, 2.1, -0.6]]).astype(np.float32)
 
     a = Tensor(x)
@@ -74,7 +74,7 @@ def test_tensor_autograd_exp() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_sin() -> None:
+def test_tensor_sin() -> None:
     x = np.array(
         [[np.pi / 6, -np.pi / 4, np.pi / 3], [np.pi / 2, -np.pi / 2, 0]]
     ).astype(np.float32)
@@ -95,7 +95,7 @@ def test_tensor_autograd_sin() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_pow() -> None:
+def test_tensor_pow() -> None:
     x = np.array([[1.2, -1.3, 2.5], [2.2, -2.1, 0.5]]).astype(np.float32)
     power = 2
 
@@ -115,7 +115,7 @@ def test_tensor_autograd_pow() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_tanh() -> None:
+def test_tensor_tanh() -> None:
     x = np.array([[0.25, -0.75, 1.5], [-1.1, 1.3, -0.5]]).astype(np.float32)
 
     a = Tensor(x)
@@ -134,7 +134,7 @@ def test_tensor_autograd_tanh() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_p_relu() -> None:
+def test_tensor_p_relu() -> None:
     x = np.array([[1.0, -1.0, 0.5], [-0.5, 2.0, -2.5]]).astype(np.float32)
     alpha = 0.01
 
@@ -154,7 +154,7 @@ def test_tensor_autograd_p_relu() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_sigmoid() -> None:
+def test_tensor_sigmoid() -> None:
     x = np.array([[2.0, -1.0, 0.5], [-0.5, 1.5, -1.5]]).astype(np.float32)
 
     a = Tensor(x)
@@ -173,7 +173,7 @@ def test_tensor_autograd_sigmoid() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_sigmoid_swish() -> None:
+def test_tensor_sigmoid_swish() -> None:
     x = np.array([[0.6, -1.2, 2.4], [-0.7, 1.8, -2.3]]).astype(np.float32)
     beta = 1.0
 
@@ -193,7 +193,7 @@ def test_tensor_autograd_sigmoid_swish() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_log() -> None:
+def test_tensor_log() -> None:
     x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).astype(np.float32)
 
     a = Tensor(x)
@@ -212,7 +212,7 @@ def test_tensor_autograd_log() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_cos() -> None:
+def test_tensor_cos() -> None:
     x = np.array(
         [[np.pi / 4, -np.pi / 3, np.pi / 6], [2 * np.pi / 3, -np.pi / 2, 0]]
     ).astype(np.float32)
@@ -233,7 +233,7 @@ def test_tensor_autograd_cos() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_matmul() -> None:
+def test_tensor_matmul() -> None:
     x = np.array([[1.0, 2.0], [3.0, 4.0]]).astype(np.float32)
     y = np.array([[2.0, 0.0], [0.0, 2.0]]).astype(np.float32)
 
@@ -253,7 +253,7 @@ def test_tensor_autograd_matmul() -> None:
     assert np.allclose(b.grad, pb.grad.numpy())
 
 
-def test_tensor_autograd_mean() -> None:
+def test_tensor_mean() -> None:
     x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).astype(np.float32)
 
     a = Tensor(x)
@@ -269,7 +269,7 @@ def test_tensor_autograd_mean() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_sum() -> None:
+def test_tensor_sum() -> None:
     x = np.array([[3.2, 1.1, 7.3], [0, -2, 3.7]]).astype(np.float32)
 
     a = Tensor(x)
@@ -285,7 +285,7 @@ def test_tensor_autograd_sum() -> None:
     assert np.allclose(a.grad, pa.grad)
 
 
-def test_tensor_autograd_mean_extended() -> None:
+def test_tensor_mean_extended() -> None:
     shapes = [(2, 3), (4, 4, 4), (1, 100)]
     for shape_idx, shape in enumerate(shapes):
         x = np.random.rand(*shape).astype(np.float32)
@@ -327,7 +327,7 @@ def test_tensor_autograd_mean_extended() -> None:
                 ), f"{shape_idx=} : Gradient mismatch for mean across dimension {dim}"
 
 
-def test_tensor_autograd_sum_extended() -> None:
+def test_tensor_sum_extended() -> None:
     shapes = [(3, 2), (2, 2, 2), (10,)]
     for shape in shapes:
         x = np.random.rand(*shape).astype(np.float32) * 10 - 5
@@ -352,7 +352,7 @@ def test_tensor_autograd_sum_extended() -> None:
                 pa.grad = None
 
 
-def test_tensor_autograd_add_sub_with_sum() -> None:
+def test_tensor_add_sub_with_sum() -> None:
     x = np.random.rand(2, 3).astype(np.float32) * 10 - 5
     y = np.random.rand(2, 3).astype(np.float32) * 10 - 5
 
@@ -377,7 +377,7 @@ def test_tensor_autograd_add_sub_with_sum() -> None:
     assert np.allclose(b.grad, pb.grad.numpy())
 
 
-def test_tensor_autograd_max() -> None:
+def test_tensor_max() -> None:
     x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).astype(np.float32)
 
     a = Tensor(x)
@@ -394,7 +394,7 @@ def test_tensor_autograd_max() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_min() -> None:
+def test_tensor_min() -> None:
     x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).astype(np.float32)
 
     a = Tensor(x)
@@ -411,7 +411,7 @@ def test_tensor_autograd_min() -> None:
     assert np.allclose(a.grad, pa.grad.numpy())
 
 
-def test_tensor_autograd_truediv() -> None:
+def test_tensor_truediv() -> None:
     x: np.ndarray[np.float32] = np.array([[2.0, 4.0], [-6.0, 8.0]]).astype(np.float32)
     y: np.ndarray[np.float32] = np.array([[1.0, 2.0], [3.0, 4.0]]).astype(np.float32)
 
@@ -440,7 +440,7 @@ def test_tensor_autograd_truediv() -> None:
     assert np.allclose(denominator.grad, denominator_pt.grad.numpy())
 
 
-def test_tensor_autograd_softmax_by_hand():
+def test_tensor_softmax_by_hand():
     x: np.ndarray[np.float32] = np.array([-6.0, 8.0, 1.0, 5.3]).astype(np.float32)
 
     pa: torch.Tensor = torch.tensor(x, requires_grad=True)
@@ -462,7 +462,7 @@ def test_tensor_autograd_softmax_by_hand():
     assert np.allclose(a.grad, pa.grad.numpy()), "Softmax gradients do not match"
 
 
-def test_tensor_autograd_softmax() -> None:
+def test_tensor_softmax() -> None:
     x: np.ndarray[np.float32] = np.array([-6.0, 8.0, 1.0, 5.3]).astype(np.float32)
 
     a = Tensor(x)
