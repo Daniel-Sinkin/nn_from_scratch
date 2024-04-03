@@ -258,7 +258,18 @@ class Tensor:
             grad_shape = tuple(grad_shape)
 
         def _backward() -> None:
-            self.grad += (np.ones(grad_shape) * result.grad).reshape(self.value.shape)
+            expanded_grad = np.ones(self.value.shape) * result.grad
+            # If summing over a specific axis, we need to sum the gradients over that axis to match the original shape's reduction.
+            if axis is not None:
+                if isinstance(axis, int):
+                    axis_to_reduce = (axis,)
+                else:
+                    axis_to_reduce = axis
+                # Sum across the reduced dimensions to get the correct gradient shape
+                reduced_grad = np.sum(expanded_grad, axis=axis_to_reduce, keepdims=True)
+                self.grad += reduced_grad.reshape(self.value.shape)
+            else:
+                self.grad += expanded_grad
 
         result._backward = _backward
         return result
