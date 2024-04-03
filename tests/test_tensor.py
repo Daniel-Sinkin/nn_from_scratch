@@ -350,3 +350,36 @@ def test_tensor_autograd_sum_extended() -> None:
             for dim in range(len(shape)):
                 a.zero_grad()
                 pa.grad = None  # Reset
+
+
+def test_tensor_autograd_add_sub_with_sum() -> None:
+    x = np.random.rand(2, 3).astype(np.float32) * 10 - 5
+    y = np.random.rand(2, 3).astype(np.float32) * 10 - 5
+
+    # Create Tensor instances for x and y
+    a = Tensor(x)
+    b = Tensor(y)
+    # Create PyTorch tensors with gradients enabled
+    pa = torch.tensor(x, requires_grad=True)
+    pb = torch.tensor(y, requires_grad=True)
+
+    # Perform addition and subtraction operations
+    c = a + b - a  # Custom Tensor operations
+    pc = pa + pb - pa  # PyTorch operations
+
+    # Apply sum reduction
+    d = c.sum()
+    pd = pc.sum()
+
+    # Backpropagate
+    d.backward()
+    pd.backward()
+
+    # Verify the final value after operations and sum reduction
+    assert np.allclose(
+        d.value, pd.detach().numpy()
+    ), "Final values mismatch after add, sub, and sum"
+
+    # Verify gradients w.r.t. the original inputs
+    assert np.allclose(a.grad, pa.grad.numpy()), "Gradient mismatch for 'a'"
+    assert np.allclose(b.grad, pb.grad.numpy()), "Gradient mismatch for 'b'"

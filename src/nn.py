@@ -3,15 +3,15 @@ import numpy as np
 from .tensor import Tensor, Operation
 
 from abc import ABC, abstractmethod
-from typing import Iterator
+from typing import Iterator, Literal
 
 
 class Module:
     @abstractmethod
     def forward(self, X: Tensor) -> Tensor: ...
 
-    def __call__(self, X: Tensor) -> Tensor:
-        return self.forward(X)
+    def __call__(self, *args, **kwargs) -> Tensor:
+        return self.forward(*args, **kwargs)
 
 
 class LinearLayer(Module):
@@ -142,3 +142,21 @@ class Sigmoid(Module):
 class Sigmoid_Swish(Module):
     def forward(self, X: Tensor) -> Tensor:
         return X.sigmoid_swish()
+
+
+# TODO: Implement ReductionType Enum
+class MSELoss(Module):
+    def __init__(self, reduction: Literal["mean", "sum"] = "mean"):
+        if reduction not in ("mean", "sum"):
+            raise ValueError(f"{reduction=} is not supported.")
+        self.reduction = reduction
+
+    def forward(self, y: Tensor, y_hat: Tensor) -> Tensor:
+        L2Squared: Tensor = (y - y_hat) ** 2
+
+        if self.reduction == "sum":
+            return L2Squared.sum()
+        elif self.reduction == "mean":
+            return L2Squared.mean()
+        else:
+            raise ValueError(f"{self.reduction=} is not supported.")

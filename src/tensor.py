@@ -36,6 +36,7 @@ class Operation(Enum):
 
     # Binary
     ADD = "ADD"
+    SUB = "SUB"
     MUL = "MUL"
     MATMUL = "MATMUL"
 
@@ -185,6 +186,38 @@ class Tensor:
             # Increments by (the potentially reshaped) gradient
             self.grad += grad_self
             other.grad += grad_other
+
+        result._backward = _backward
+        return result
+
+    def __sub__(self, other) -> "Tensor":
+        if not isinstance(other, Tensor):
+            other = Tensor(other)
+
+        result = Tensor(
+            self.value - other.value, children=(self, other), grad_fn=Operation.SUB
+        )
+
+        # D(f(x) - g(x)) = Df(x) - Dg(x)
+        def _backward() -> None:
+            self.grad += result.grad
+            other.grad -= result.grad
+
+        result._backward = _backward
+        return result
+
+    def __rsub__(self, other) -> "Tensor":
+        if not isinstance(other, Tensor):
+            other = Tensor(other)
+
+        result = Tensor(
+            other.value - self.value, children=(self, other), grad_fn=Operation.SUB
+        )
+
+        # D(g(x) - f(x)) = Dg(x) - Df(x) = - (Df(x) - Df(x))
+        def _backward() -> None:
+            self.grad -= result.grad
+            other.grad += result.grad
 
         result._backward = _backward
         return result

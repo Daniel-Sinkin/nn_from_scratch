@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from src.tensor import Tensor
-from src.nn import LinearLayer, ReLu, MLP, PReLu, Tanh, Sigmoid
+from src.nn import LinearLayer, ReLu, MLP, PReLu, Tanh, Sigmoid, MSELoss
 
 import torch.nn
 
@@ -219,3 +219,39 @@ def test_Sigmoid():
     y_pt: torch.Tensor = sigmoid_pt(X_pt)
 
     assert y == y_pt
+
+
+def test_MSELoss_mean():
+    data: np.ndarray[np.float32] = _rng.normal(0, 1, size=10).astype(np.float32)
+    data_target: np.ndarray[np.float32] = _rng.normal(0, 1, size=10).astype(np.float32)
+
+    y = Tensor(data)
+    y_hat = Tensor(data_target)
+    y_pt: torch.Tensor = torch.tensor(data, requires_grad=True)
+    y_hat_pt: torch.Tensor = torch.tensor(data_target, requires_grad=True)
+
+    loss = MSELoss(reduction="mean")
+    loss_pt = torch.nn.MSELoss(reduction="mean")
+
+    loss_val: Tensor = loss(y, y_hat)
+    loss_val_pt: torch.Tensor = loss_pt(y_pt, y_hat_pt)
+
+    assert loss_val == loss_val_pt
+
+
+def test_MSELoss_sum():
+    data: np.ndarray[np.float32] = _rng.normal(0, 1, size=10).astype(np.float32)
+    data_target: np.ndarray[np.float32] = _rng.normal(0, 1, size=10).astype(np.float32)
+
+    y = Tensor(data)
+    y_hat = Tensor(data_target)
+    y_pt: torch.Tensor = torch.tensor(data, requires_grad=True)
+    y_hat_pt: torch.Tensor = torch.tensor(data_target, requires_grad=True)
+
+    loss = MSELoss(reduction="sum")
+    loss_pt = torch.nn.MSELoss(reduction="sum")
+
+    loss_val: Tensor = loss(y, y_hat)
+    loss_val_pt: torch.Tensor = loss_pt(y_pt, y_hat_pt)
+
+    assert loss_val == loss_val_pt
