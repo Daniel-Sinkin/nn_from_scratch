@@ -33,7 +33,7 @@ def test_tensor_autograd_complicated():
     assert (
         intermediate_steps[-1].value == intermediate_steps_pytorch[-1].detach().numpy()
     )
-    assert a == pa
+    assert np.allclose(a.grad, pa.grad)
 
 
 def test_tensor_autograd_relu() -> None:
@@ -52,7 +52,7 @@ def test_tensor_autograd_relu() -> None:
     pc.backward()
 
     assert c.value == pc.detach().numpy()
-    assert a == pa
+    assert np.allclose(a.grad, pa.grad)
 
 
 def test_tensor_autograd_exp() -> None:
@@ -282,7 +282,7 @@ def test_tensor_autograd_sum() -> None:
     pc.backward()
 
     assert c.value == pc.detach().numpy()
-    assert a == pa
+    assert np.allclose(a.grad, pa.grad)
 
 
 def test_tensor_autograd_mean_extended() -> None:

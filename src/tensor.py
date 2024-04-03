@@ -30,6 +30,7 @@ class Operation(Enum):
     MATMUL = "MATMUL"
     MEAN = "MEAN"
     ID = "ID"
+    T = "T"
 
 
 class Tensor:
@@ -40,7 +41,10 @@ class Tensor:
         grad_fn: Operation = Operation.NOT_INITIALIZED,
     ):
         self.value: np.ndarray = value
+
+        # TODO: Make the gradient into a tensor instead of a numpy array
         self.grad: np.ndarray = np.zeros_like(value)
+
         if children is not None:
             self._children: tuple["Tensor"] = children
         else:
@@ -69,16 +73,10 @@ class Tensor:
             return self.value == other.value
 
         if isinstance(other, torch.Tensor):
-            return (
-                np.isclose(self.value, other.detach().numpy()).all()
-                and np.isclose(self.grad, other.grad).all()
-            )
+            return np.isclose(self.value, other.detach().numpy()).all()
 
         if isinstance(other, np.ndarray):
-            return (
-                np.isclose(self.value, other).all()
-                and np.isclose(self.grad, other.grad.numpy()).all()
-            )
+            return np.isclose(self.value, other).all()
 
         return NotImplemented
 
@@ -88,6 +86,10 @@ class Tensor:
     # https://github.com/pytorch/pytorch/blob/aaef246c74b964ba43f051a4a3e484d25d418f44/torch/_tensor.py#L1068C9-L1068C17
     def __hash__(self) -> int:
         return id(self)
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return self.value.shape
 
     def zero_grad(self):
         for node in self.get_all_nodes():
@@ -159,6 +161,9 @@ class Tensor:
         result._backward = _backward
         return result
 
+    def __rmul__(self, other: "Tensor") -> "Tensor":
+        return self.__mul__(other)
+
     def matmul(self, other: "Tensor") -> "Tensor":
         result = Tensor(
             self.value @ other.value, children=(self, other), grad_fn=Operation.MATMUL
@@ -178,9 +183,19 @@ class Tensor:
     def __matmul__(self, other: "Tensor") -> "Tensor":
         return self.matmul(other)
 
+    def __rmatmul__(self, other: "Tensor") -> "Tensor":
+        return other.matmul(self)
+
     @property
     def T(self) -> "Tensor":
-        return Tensor(self.value.T)
+        result = Tensor(self.value.T, children=(self,), grad_fn=Operation.T)
+
+        # D(A^T) = (D(A))^T
+        def _backward() -> None:
+            self.grad += result.grad.T
+
+        result._backward = _backward
+        return result
 
     def exp(self) -> "Tensor":
         result = Tensor(np.exp(self.value), children=(self,), grad_fn=Operation.EXP)
