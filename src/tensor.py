@@ -297,13 +297,11 @@ class Tensor:
 
         def _backward() -> None:
             expanded_grad = np.ones(self.value.shape) * result.grad
-            # If summing over a specific axis, we need to sum the gradients over that axis to match the original shape's reduction.
             if axis is not None:
                 if isinstance(axis, int):
                     axis_to_reduce = (axis,)
                 else:
                     axis_to_reduce = axis
-                # Sum across the reduced dimensions to get the correct gradient shape
                 reduced_grad = np.sum(expanded_grad, axis=axis_to_reduce, keepdims=True)
                 self.grad += reduced_grad.reshape(self.value.shape)
             else:
@@ -413,3 +411,11 @@ class Tensor:
 
         result._backward = _backward
         return result
+
+    @classmethod
+    def from_torch(tensor: torch.Tensor) -> "Tensor":
+        data: np.ndarray = tensor.unbind().numpy()
+        return Tensor(data)
+
+    def to_torch(self) -> torch.Tensor:
+        return torch.tensor(self.value)
