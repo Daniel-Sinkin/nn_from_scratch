@@ -148,32 +148,40 @@ class Tensor:
             node._backward()
 
     def __add__(self, other) -> "Tensor":
+        if not isinstance(other, Tensor):
+            other = Tensor(other)
+
         result = Tensor(
             self.value + other.value, children=(self, other), grad_fn=Operation.ADD
         )
 
-        # D add(f(x), g(y)) = (Df(x), Dg(y))
-        # Weird numpy broadcasting bug when using += so I'm accumulating explicitly
-        # https://numpy.org/doc/stable/user/basics.broadcasting.html
         def _backward() -> None:
-            for tensor in [self, other]:
-                if tensor.value.shape != result.value.shape:
-                    # Reduce on shape mismatch
-                    grad_tensor = np.sum(
-                        result.grad,
-                        axis=tuple(range(result.grad.ndim - self.grad.ndim)),
-                    )
-                    for i, dim in enumerate(self.value.shape):
-                        # TODO: Check if this shouldn't be accumulating
-                        # TODO: Check behaviour if we have multiple == 1 dims
-                        if dim == 1:
-                            grad_tensor = np.sum(grad_tensor, axis=i, keepdims=True)
-                else:
-                    # If we don't have a shape mismatch we don't have to reduce
-                    grad_tensor = result.grad
+            # Reshapes, if necessary
+            if self.value.shape != result.value.shape:
+                grad_self = np.sum(
+                    result.grad, axis=tuple(range(result.grad.ndim - self.grad.ndim))
+                )
+                for i, dim in enumerate(self.value.shape):
+                    # TODO: Check what happens if multiple dim == 1 <LINK$1>
+                    if dim == 1:
+                        grad_self = np.sum(grad_self, axis=i, keepdims=True)
+            else:
+                grad_self = result.grad
 
-                # Increments either by reduced result.grad or but result.grad itself
-                tensor.grad += grad_tensor
+            if other.value.shape != result.value.shape:
+                grad_other = np.sum(
+                    result.grad, axis=tuple(range(result.grad.ndim - other.grad.ndim))
+                )
+                for i, dim in enumerate(other.value.shape):
+                    # TODO: Check what happens if multiple dim == 1 <LINK$1>
+                    if dim == 1:
+                        grad_other = np.sum(grad_other, axis=i, keepdims=True)
+            else:
+                grad_other = result.grad
+
+            # Increments by (the potentially reshaped) gradient
+            self.grad += grad_self
+            other.grad += grad_other
 
         result._backward = _backward
         return result
