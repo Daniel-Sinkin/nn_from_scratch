@@ -349,37 +349,63 @@ def test_tensor_autograd_sum_extended() -> None:
         if len(shape) > 1:
             for dim in range(len(shape)):
                 a.zero_grad()
-                pa.grad = None  # Reset
+                pa.grad = None
 
 
 def test_tensor_autograd_add_sub_with_sum() -> None:
     x = np.random.rand(2, 3).astype(np.float32) * 10 - 5
     y = np.random.rand(2, 3).astype(np.float32) * 10 - 5
 
-    # Create Tensor instances for x and y
     a = Tensor(x)
     b = Tensor(y)
-    # Create PyTorch tensors with gradients enabled
+
     pa = torch.tensor(x, requires_grad=True)
     pb = torch.tensor(y, requires_grad=True)
 
-    # Perform addition and subtraction operations
-    c = a + b - a  # Custom Tensor operations
-    pc = pa + pb - pa  # PyTorch operations
+    c = a + b - a
+    pc = pa + pb - pa
 
-    # Apply sum reduction
     d = c.sum()
     pd = pc.sum()
 
-    # Backpropagate
     d.backward()
     pd.backward()
 
-    # Verify the final value after operations and sum reduction
-    assert np.allclose(
-        d.value, pd.detach().numpy()
-    ), "Final values mismatch after add, sub, and sum"
+    assert d == pd
 
-    # Verify gradients w.r.t. the original inputs
-    assert np.allclose(a.grad, pa.grad.numpy()), "Gradient mismatch for 'a'"
-    assert np.allclose(b.grad, pb.grad.numpy()), "Gradient mismatch for 'b'"
+    assert np.allclose(a.grad, pa.grad.numpy())
+    assert np.allclose(b.grad, pb.grad.numpy())
+
+
+def test_tensor_autograd_max() -> None:
+    x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).astype(np.float32)
+
+    a = Tensor(x)
+    pa = torch.tensor(x, requires_grad=True)
+
+    b = a.max()
+    pb = torch.max(pa)
+
+    b.backward()
+    pb.backward()
+
+    assert b == pb
+
+    assert np.allclose(a.grad, pa.grad.numpy())
+
+
+def test_tensor_autograd_min() -> None:
+    x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).astype(np.float32)
+
+    a = Tensor(x)
+    pa = torch.tensor(x, requires_grad=True)
+
+    b = a.min()
+    pb = torch.min(pa)
+
+    b.backward()
+    pb.backward()
+
+    assert b == pb
+
+    assert np.allclose(a.grad, pa.grad.numpy())

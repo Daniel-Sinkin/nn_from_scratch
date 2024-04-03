@@ -144,7 +144,10 @@ class Sigmoid_Swish(Module):
         return X.sigmoid_swish()
 
 
-# TODO: Implement ReductionType Enum
+# TODO: Implement ReductionType Enum instead of doing string comparison
+#       if want to be tricky we could also da startwith "m" and startwith "s"
+#       check as we have the guarantee that reduction is either mean or sum
+#       but that would be silly.
 class MSELoss(Module):
     def __init__(self, reduction: Literal["mean", "sum"] = "mean"):
         if reduction not in ("mean", "sum"):

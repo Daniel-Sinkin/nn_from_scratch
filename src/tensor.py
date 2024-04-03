@@ -29,6 +29,8 @@ class Operation(Enum):
     SIGMOID_SWISH = "SIGMOID_SWISH"
     POW = "POW"
     T = "T"  # Transpose
+    MAX = "MAX"
+    MIN = "MIN"
 
     # Reducing
     SUM = "SUM"
@@ -458,3 +460,44 @@ class Tensor:
 
     def to_torch(self) -> torch.Tensor:
         return torch.tensor(self.value)
+
+    def max(self, axis=None) -> "Tensor":
+        max_value = np.max(self.value, axis=axis, keepdims=True)
+        result = Tensor(max_value, children=(self,), grad_fn=Operation.MAX)
+
+        def _backward() -> None:
+            mask = self.value == max_value
+            grad = result.grad * mask
+            if axis is not None:
+                sum_axis = tuple(range(self.value.ndim))
+                sum_axis = sum_axis[:axis] + sum_axis[axis + 1 :]
+                grad = np.sum(grad, axis=sum_axis, keepdims=True)
+            self.grad += grad
+
+        result._backward = _backward
+        return result
+
+    def min(self, axis=None) -> "Tensor":
+        min_value = np.min(self.value, axis=axis, keepdims=True)
+        result = Tensor(min_value, children=(self,), grad_fn=Operation.MIN)
+
+        def _backward() -> None:
+            mask = self.value == min_value
+            grad = result.grad * mask
+            if axis is not None:
+                sum_axis = tuple(range(self.value.ndim))
+                sum_axis = sum_axis[:axis] + sum_axis[axis + 1 :]
+                grad = np.sum(grad, axis=sum_axis, keepdims=True)
+            self.grad += grad
+
+        result._backward = _backward
+        return result
+
+    # The naive implementation of softmax is very numerically unstable
+    # for some discussion how to make it more stable see my exercise solutions:
+    # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/4_linear-classification/1_softmax-regression/softmax-regression_6.ipynb
+    # and
+    # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/4_linear-classification/4_softmax-regression-scratch.ipynb/softmax-regression-scratch_1.ipynb
+    def softmax(self) -> torch.Tensor:
+        _exp = np.exp(self.value)
+        _exp / _exp.sum(1, keepdims=True)
