@@ -440,14 +440,36 @@ def test_tensor_autograd_truediv() -> None:
     assert np.allclose(denominator.grad, denominator_pt.grad.numpy())
 
 
+def test_tensor_autograd_softmax_by_hand():
+    x: np.ndarray[np.float32] = np.array([-6.0, 8.0, 1.0, 5.3]).astype(np.float32)
+
+    pa: torch.Tensor = torch.tensor(x, requires_grad=True)
+    pb: torch.Tensor = pa - pa.max(dim=-1, keepdim=True).values
+    pc: torch.Tensor = torch.exp(pb)
+    pd: torch.Tensor = pc / pc.sum(dim=-1, keepdim=True)
+    pe = pd.sum()
+    pe.backward()
+
+    a: Tensor = Tensor(x)
+    b: Tensor = a - a.max(axis=-1, keepdim=True)
+    c: Tensor = b.exp()
+    d: Tensor = c / c.sum(axis=-1, keepdim=True)
+    e: Tensor = d.sum()
+    e.backward()
+
+    assert e == pe
+
+    assert np.allclose(a.grad, pa.grad.numpy()), "Softmax gradients do not match"
+
+
 def test_tensor_autograd_softmax() -> None:
-    x = np.random.rand(2, 5).astype(np.float32) * 10 - 5
+    x: np.ndarray[np.float32] = np.array([-6.0, 8.0, 1.0, 5.3]).astype(np.float32)
 
     a = Tensor(x)
     pa = torch.tensor(x, requires_grad=True)
 
-    b = a.softmax()
-    pb = torch.softmax(pa, dim=0)
+    b = a.softmax(axis=-1)
+    pb = torch.softmax(pa, dim=-1)
 
     assert b == pb
 

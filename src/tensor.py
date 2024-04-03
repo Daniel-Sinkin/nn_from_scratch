@@ -113,6 +113,11 @@ class Tensor:
     def ndim(self) -> int:
         return self.value.ndim
 
+    @classmethod
+    def eye(self, N: int, M: Optional[int] = None) -> int:
+        """Identity matrix of size N x M."""
+        return Tensor(np.eye(N, M))
+
     def zero_grad(self):
         for node in self.get_all_nodes():
             node.grad = np.zeros_like(node.value)
@@ -203,8 +208,8 @@ class Tensor:
 
         # D(f(x) - g(x)) = Df(x) - Dg(x)
         def _backward() -> None:
-            self.grad += result.grad
-            other.grad -= result.grad
+            self.grad = self.grad + result.grad
+            other.grad = other.grad - result.grad
 
         result._backward = _backward
         return result
@@ -261,6 +266,7 @@ class Tensor:
                 grad_self = np.sum(
                     result.grad / other.value,
                     axis=tuple(range(result.grad.ndim - self.grad.ndim)),
+                    keepdims=True,
                 )
                 for i, dim in enumerate(self.value.shape):
                     if dim == 1:
@@ -273,6 +279,7 @@ class Tensor:
                 grad_other = np.sum(
                     -self.value * result.grad / (other.value**2),
                     axis=tuple(range(result.grad.ndim - other.grad.ndim)),
+                    keepdims=True,
                 )
                 for i, dim in enumerate(other.value.shape):
                     if dim == 1:
@@ -372,9 +379,11 @@ class Tensor:
         result._backward = _backward
         return result
 
-    def sum(self, axis=None) -> "Tensor":
+    def sum(self, axis=None, keepdim=False) -> "Tensor":
         result = Tensor(
-            np.sum(self.value, axis=axis), children=(self,), grad_fn=Operation.SUM
+            np.sum(self.value, axis=axis, keepdims=keepdim),
+            children=(self,),
+            grad_fn=Operation.SUM,
         )
 
         if axis is None:
@@ -396,7 +405,7 @@ class Tensor:
                 else:
                     axis_to_reduce = axis
                 reduced_grad = np.sum(expanded_grad, axis=axis_to_reduce, keepdims=True)
-                self.grad += reduced_grad.reshape(self.value.shape)
+                self.grad += reduced_grad
             else:
                 self.grad += expanded_grad
 
@@ -505,16 +514,16 @@ class Tensor:
         result._backward = _backward
         return result
 
-    @classmethod
+    @staticmethod
     def from_torch(tensor: torch.Tensor) -> "Tensor":
-        data: np.ndarray = tensor.unbind().numpy()
+        data: np.ndarray = tensor.numpy()
         return Tensor(data)
 
     def to_torch(self) -> torch.Tensor:
         return torch.tensor(self.value)
 
-    def max(self, axis=None) -> "Tensor":
-        max_value = np.max(self.value, axis=axis, keepdims=True)
+    def max(self, axis=None, keepdim=False) -> "Tensor":
+        max_value = np.max(self.value, axis=axis, keepdims=keepdim)
         result = Tensor(max_value, children=(self,), grad_fn=Operation.MAX)
 
         def _backward() -> None:
@@ -529,8 +538,8 @@ class Tensor:
         result._backward = _backward
         return result
 
-    def min(self, axis=None) -> "Tensor":
-        min_value = np.min(self.value, axis=axis, keepdims=True)
+    def min(self, axis=None, keepdim=False) -> "Tensor":
+        min_value = np.min(self.value, axis=axis, keepdims=keepdim)
         result = Tensor(min_value, children=(self,), grad_fn=Operation.MIN)
 
         def _backward() -> None:
@@ -550,9 +559,8 @@ class Tensor:
     # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/4_linear-classification/1_softmax-regression/softmax-regression_6.ipynb
     # and
     # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/4_linear-classification/4_softmax-regression-scratch.ipynb/softmax-regression-scratch_1.ipynb
-    def softmax(self) -> torch.Tensor:
-        # Shift the input value by subtracting the max value to prevent overflow
-        _max = self.max(axis=1)
+    def softmax(self, axis=-1) -> "Tensor":
+        _max = self.max()
         shifted_value = self - _max
         exp_value = shifted_value.exp()
-        return exp_value / exp_value.sum()
+        return exp_value / exp_value.sum(axis=axis, keepdim=True)
