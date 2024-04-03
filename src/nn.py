@@ -18,6 +18,9 @@ class LinearLayer(Module):
     def __init__(
         self, n_in: int, n_out: int, bias: bool = True, seed: int = 0x2024_04_03
     ):
+        if not bias:
+            raise NotImplementedError
+
         self.seed = seed
         _rng = np.random.default_rng(self.seed)
         self.weight = Tensor(_rng.normal(0, 0.01, (n_out, n_in)).astype(np.float32))
@@ -66,6 +69,15 @@ class MLP(Module):
         for layer in self.layers:
             X = layer(X)
         return X
+
+    def __iter__(self) -> Iterator[Module]:
+        return iter(self.layers)
+
+    def __getitem__(self, index: int) -> Module:
+        return self.layers[index]
+
+    def __len__(self) -> int:
+        return len(self.layers)
 
 
 class ReLu(Module):
