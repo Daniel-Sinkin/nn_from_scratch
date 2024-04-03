@@ -43,10 +43,13 @@ class Operation(Enum):
 class Tensor:
     def __init__(
         self,
-        value: np.ndarray,
+        value: float | np.ndarray,
         children: tuple["Tensor"] = None,
         grad_fn: Operation = Operation.NOT_INITIALIZED,
     ):
+        if isinstance(value, (int, float)):
+            value = np.array(value).astype(np.float32)
+
         self.value: np.ndarray = value
 
         # TODO: Make the gradient into a tensor instead of a numpy array
@@ -186,7 +189,10 @@ class Tensor:
         result._backward = _backward
         return result
 
-    def __mul__(self, other: "Tensor") -> "Tensor":
+    def __mul__(self, other) -> "Tensor":
+        if not isinstance(other, Tensor):
+            other = Tensor(other)
+
         result = Tensor(
             self.value * other.value, children=(self, other), grad_fn=Operation.MUL
         )
@@ -199,10 +205,10 @@ class Tensor:
         result._backward = _backward
         return result
 
-    def __rmul__(self, other: "Tensor") -> "Tensor":
+    def __rmul__(self, other) -> "Tensor":
         return self.__mul__(other)
 
-    def matmul(self, other: "Tensor") -> "Tensor":
+    def matmul(self, other) -> "Tensor":
         result = Tensor(
             self.value @ other.value, children=(self, other), grad_fn=Operation.MATMUL
         )
@@ -218,10 +224,10 @@ class Tensor:
         result._backward = _backward
         return result
 
-    def __matmul__(self, other: "Tensor") -> "Tensor":
+    def __matmul__(self, other) -> "Tensor":
         return self.matmul(other)
 
-    def __rmatmul__(self, other: "Tensor") -> "Tensor":
+    def __rmatmul__(self, other) -> "Tensor":
         return other.matmul(self)
 
     @property

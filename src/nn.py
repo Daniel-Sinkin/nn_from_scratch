@@ -118,3 +118,27 @@ class MLP(Module):
 class ReLu(Module):
     def forward(self, X: Tensor) -> Tensor:
         return X.relu()
+
+
+class PReLu(Module):
+    def __init__(self, init: float = 0.25):
+        super().__init__()
+        self.alpha = init
+
+    def forward(self, X: Tensor) -> Tensor:
+        return X.p_relu(self.alpha)
+
+
+class Tanh(Module):
+    def forward(self, X: Tensor) -> Tensor:
+        return X.tanh()
+
+
+class Sigmoid(Module):
+    def forward(self, X: Tensor) -> Tensor:
+        return X.sigmoid()
+
+
+class Sigmoid_Swish(Module):
+    def forward(self, X: Tensor) -> Tensor:
+        return X.sigmoid_swish()

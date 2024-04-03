@@ -9,15 +9,15 @@ import numpy as np
 import torch
 
 from src.tensor import Tensor
-from src.nn import LinearLayer, ReLu, MLP
+from src.nn import LinearLayer, ReLu, MLP, PReLu, Tanh, Sigmoid
 
 import torch.nn
 
 SEED = 0x2024_04_03
+_rng = np.random.default_rng(SEED)
 
 
 def test_linear_layer():
-    _rng = np.random.default_rng(SEED)
 
     layer = LinearLayer(15, 17, bias=True, seed=SEED)
     layer_pt = torch.nn.Linear(15, 17)
@@ -53,8 +53,6 @@ def test_linear_layer():
 
 
 def test_linear_relu_layer():
-    _rng = np.random.default_rng(SEED)
-
     layer = LinearLayer(15, 17, bias=True, seed=SEED)
     layer_pt = torch.nn.Linear(15, 17)
 
@@ -93,7 +91,6 @@ def test_linear_relu_layer():
 
 
 def test_mlp_no_hidden_layers():
-    _rng = np.random.default_rng(SEED)
     data: np.ndarray[np.float32] = _rng.normal(3, 2.0, (5, 3)).astype(np.float32)
 
     X = Tensor(data)
@@ -128,7 +125,6 @@ def test_mlp_no_hidden_layers():
 
 
 def test_mlp_7_hidden_layers():
-    _rng = np.random.default_rng(SEED)
     data: np.ndarray[np.float32] = _rng.normal(3, 2.0, (5, 3)).astype(np.float32)
 
     X = Tensor(data)
@@ -166,3 +162,60 @@ def test_mlp_7_hidden_layers():
     for layer, layer_pt in zip(mlp, mlp_pt):
         assert np.allclose(layer.weight.grad, layer_pt.weight.grad)
         assert np.allclose(layer.bias.grad, layer_pt.bias.grad)
+
+
+def test_ReLu():
+    data: np.ndarray[np.float32] = _rng.normal(0, 1, (10, 10)).astype(np.float32)
+    X = Tensor(data)
+    X_pt: torch.Tensor = torch.tensor(data, requires_grad=True)
+
+    relu = ReLu()
+    relu_pt = torch.nn.ReLU()
+
+    y: Tensor = relu(X)
+    y_pt: torch.Tensor = relu_pt(X_pt)
+
+    assert y == y_pt
+
+
+def test_PReLu():
+    data: np.ndarray[np.float32] = _rng.normal(0, 1, (10, 10)).astype(np.float32)
+    alpha_init = 0.25
+    X = Tensor(data)
+    X_pt: torch.Tensor = torch.tensor(data, requires_grad=True)
+
+    prelu = PReLu(init=alpha_init)
+    prelu_pt = torch.nn.PReLU(init=alpha_init)
+
+    y: Tensor = prelu(X)
+    y_pt: torch.Tensor = prelu_pt(X_pt)
+
+    assert y == y_pt
+
+
+def test_Tanh():
+    data: np.ndarray[np.float32] = _rng.normal(0, 1, (10, 10)).astype(np.float32)
+    X = Tensor(data)
+    X_pt: torch.Tensor = torch.tensor(data, requires_grad=True)
+
+    tanh = Tanh()
+    tanh_pt = torch.nn.Tanh()
+
+    y: Tensor = tanh(X)
+    y_pt: torch.Tensor = tanh_pt(X_pt)
+
+    assert y == y_pt
+
+
+def test_Sigmoid():
+    data: np.ndarray[np.float32] = _rng.normal(0, 1, (10, 10)).astype(np.float32)
+    X = Tensor(data)
+    X_pt: torch.Tensor = torch.tensor(data, requires_grad=True)
+
+    sigmoid = Sigmoid()
+    sigmoid_pt = torch.nn.Sigmoid()
+
+    y: Tensor = sigmoid(X)
+    y_pt: torch.Tensor = sigmoid_pt(X_pt)
+
+    assert y == y_pt
