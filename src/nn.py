@@ -6,115 +6,68 @@ from abc import ABC, abstractmethod
 from typing import Iterator
 
 
-class Module(ABC):
-    """Baseclass for Neuron, Layer and MLP."""
-
+class Module:
     @abstractmethod
-    def forward(self, x: Tensor) -> Tensor | list[Tensor]: ...
+    def forward(self, X: Tensor) -> Tensor: ...
 
-    def __call__(self, x: Tensor) -> Tensor | list[Tensor]:
-        return self.forward(x)
-
-    @property
-    @abstractmethod
-    def parameters(self) -> list[Tensor]: ...
-
-    def zero_grad(self):
-        for p in self.parameters:
-            p.zero_grad()
+    def __call__(self, X: Tensor) -> Tensor:
+        return self.forward(X)
 
 
-class Neuron:
+class LinearLayer(Module):
+    def __init__(
+        self, n_in: int, n_out: int, bias: bool = True, seed: int = 0x2024_04_03
+    ):
+        self.seed = seed
+        _rng = np.random.default_rng(self.seed)
+        self.weight = Tensor(_rng.normal(0, 0.01, (n_out, n_in)).astype(np.float32))
+        self.bias = Tensor(_rng.normal(0, 0.01, size=n_out).astype(np.float32))
+
+    def forward(self, X: Tensor) -> Tensor:
+        return X @ self.weight.T + self.bias
+
+    def __repr__(self):
+        return f"Layer(n_in={self.weight.shape[1]}, n_out={self.weight.shape[0]}, seed={self.seed})"
+
+    def __str__(self):
+        return f"Layer with input dimension {self.weight.shape[0]}, output dimension {self.weight.shape[1]}"
+
+
+class MLP(Module):
     def __init__(
         self,
         n_in: int,
-        n_out: int,
-        seed: int = 0x2024_04_02,
-        activation_func: Operation = Operation.ID,
+        hiddens: tuple[int],
+        n_out,
+        bias: bool = True,
+        seed: int = 0x2024_04_3,
     ):
+        self.seed = seed
         _rng = np.random.default_rng(seed)
 
-        self.W = Tensor(_rng.normal(0, 0.01, size=(n_in, n_out)).astype(np.float32))
-        self.b = Tensor(_rng.normal(0, 0.01, size=n_out).astype(np.float32))
+        if len(hiddens) == 0:
+            print("Warning: This MLP could have been a single layer.")
+            self.layers = [LinearLayer(n_in, n_out, bias=bias, seed=seed)]
+        else:
+            self.layers = []
 
-        if not activation_func in (
-            Operation.RELU,
-            Operation.P_RELU,
-            Operation.SIGMOID,
-            Operation.TANH,
-            Operation.SIGMOID_SWISH,
-            Operation.ID,
-        ):
-            raise ValueError(f"Unsupported operation {activation_func=}")
-        self.activation_func: Operation = activation_func
+            input_layer = LinearLayer(n_in=n_in, n_out=hiddens[0], bias=bias, seed=seed)
+            self.layers.append(input_layer)
 
-    def __repr__(self):
-        return f"Neuron({self.W}, {self.b})"
+            for h1, h2 in zip(hiddens[:-1], hiddens[1:]):
+                self.layers.append(LinearLayer(n_in=h1, n_out=h2, bias=bias, seed=seed))
 
-    @property
-    def parameters(self) -> list[Tensor]:
-        return self.W + [self.b]
+            output_layer = LinearLayer(
+                n_in=hiddens[-1], n_out=n_out, bias=bias, seed=seed
+            )
+            self.layers.append(output_layer)
 
     def forward(self, X: Tensor) -> Tensor:
-        # Recheck if we should use self.W @ X or X @ self.W
-        result = X @ self.W + self.b
-
-        match self.activation_func:
-            case Operation.RELU:
-                return result.relu()
-            case Operation.P_RELU:
-                return result.p_relu(alpha=0.1)
-            case Operation.SIGMOID:
-                return result.sigmoid()
-            case Operation.TANH:
-                return result.tanh()
-            case Operation.SIGMOID_SWISH:
-                return result.sigmoid_swish(beta=1.0)
-            case Operation.ID:
-                return result
-
-    def __eq__(self, other):
-        if isinstance(other, Neuron):
-            return (
-                (self.W == other.W).all()
-                and (self.b == other.b).all()
-                and self.activation_func
-            )
-
-        return NotImplemented
+        for layer in self.layers:
+            X = layer(X)
+        return X
 
 
-class Layer(Module):
-    def __init__(self, n_in: int, n_out: int, **kwargs):
-        self._neurons: list[Neuron] = [Neuron(n_in, **kwargs) for _ in range(n_out)]
-
-    def get_neurons(self) -> list[Neuron]:
-        return self._neurons
-
-    def __iter__(self) -> Iterator[Neuron]:
-        return iter(self._neurons)
-
-    def __repr__(self):
-        return f"Layer of [{', '.join(str(n) for n in self.neurons)}]"
-
-    def __getitem__(self, idx: int) -> Neuron:
-        return self._neurons[idx]
-
-    def __eq__(self, other) -> bool:
-        if isinstance(other, Layer):
-            return self.get_neurons() == other.get_neurons()
-
-        return NotImplemented
-
-    def forward(self, X: Tensor) -> Tensor | list[Tensor]:
-        retval: list[Tensor] = [n(X) for n in self]
-        return retval[0] if len(retval) == 1 else retval
-
-    @property
-    def parameters(self) -> list[Tensor]:
-        return [param for neuron in self for param in neuron.parameters]
-
-
-class MLP:
-    def __init__(self):
-        pass
+class ReLu(Module):
+    def forward(self, X: Tensor) -> Tensor:
+        return X.relu()
