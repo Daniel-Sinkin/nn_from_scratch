@@ -222,8 +222,10 @@ def test_Sigmoid():
 
 
 def test_MSELoss_mean():
-    data: np.ndarray[np.float32] = _rng.normal(0, 1, size=10).astype(np.float32)
-    data_target: np.ndarray[np.float32] = _rng.normal(0, 1, size=10).astype(np.float32)
+    data: np.ndarray[np.float32] = _rng.normal(0, 1, size=(10, 10)).astype(np.float32)
+    data_target: np.ndarray[np.float32] = _rng.normal(0, 1, size=(10, 10)).astype(
+        np.float32
+    )
 
     y = Tensor(data)
     y_hat = Tensor(data_target)
@@ -240,8 +242,10 @@ def test_MSELoss_mean():
 
 
 def test_MSELoss_sum():
-    data: np.ndarray[np.float32] = _rng.normal(0, 1, size=10).astype(np.float32)
-    data_target: np.ndarray[np.float32] = _rng.normal(0, 1, size=10).astype(np.float32)
+    data: np.ndarray[np.float32] = _rng.normal(0, 1, size=(10, 10)).astype(np.float32)
+    data_target: np.ndarray[np.float32] = _rng.normal(0, 1, size=(10, 10)).astype(
+        np.float32
+    )
 
     y = Tensor(data)
     y_hat = Tensor(data_target)
