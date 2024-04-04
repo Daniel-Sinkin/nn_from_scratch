@@ -6,42 +6,7 @@ import torch
 import numpy as np
 from numbers import Number
 
-
-class Operation(Enum):
-    """
-    ID stands for identity and basically means nothing, for Neurons it
-    signifies that we don't have an activation function.
-    """
-
-    # Reserved
-    NOT_INITIALIZED = "NOT_INITIALIZED"
-    ID = "ID"
-
-    # Unary
-    EXP = "EXP"
-    LOG = "LOG"
-    SIN = "SIN"
-    COS = "COS"
-    RELU = "RELU"
-    P_RELU = "P_RELU"
-    TANH = "TANH"
-    SIGMOID = "SIGMOID"
-    SIGMOID_SWISH = "SIGMOID_SWISH"
-    POW = "POW"
-    TR = "TR"  # Transpose
-    MAX = "MAX"
-    MIN = "MIN"
-
-    # Reducing
-    SUM = "SUM"
-    MEAN = "MEAN"
-
-    # Binary
-    ADD = "ADD"
-    SUB = "SUB"
-    MUL = "MUL"
-    DIV = "DIV"
-    MATMUL = "MATMUL"
+from .tensor_constants import Operation
 
 
 class Tensor:
@@ -138,8 +103,9 @@ class Tensor:
         return nodes
 
     # Micrograd implemented this by hand
-    # TinyGrad's implemenation
+    # TinyGrad's implemenation can be found here
     # https://github.com/tinygrad/tinygrad/blob/e879e16c485e501e107cd5be6cd82f1d261453f3/tinygrad/tensor.py#L340
+    # I'm just going to use a library for the topsort, might implement it myself later.
     def backward(self):
         graph = nx.DiGraph()
 
@@ -554,6 +520,7 @@ class Tensor:
         result._backward = _backward
         return result
 
+    # TODO: @FixMe
     # The naive implementation of softmax is very numerically unstable
     # for some discussion how to make it more stable see my exercise solutions:
     # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/4_linear-classification/1_softmax-regression/softmax-regression_6.ipynb

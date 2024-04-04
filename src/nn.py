@@ -1,6 +1,7 @@
 import numpy as np
 
 from .tensor import Tensor, Operation
+from .nn_constants import Constants
 
 from abc import ABC, abstractmethod
 from typing import Iterator, Literal
@@ -121,7 +122,7 @@ class ReLu(Module):
 
 
 class PReLu(Module):
-    def __init__(self, init: float = 0.25):
+    def __init__(self, init: float = Constants.PRELU_ALPHA_DEFAULT):
         super().__init__()
         self.alpha = init
 
@@ -140,7 +141,9 @@ class Sigmoid(Module):
 
 
 class Sigmoid_Swish(Module):
-    def forward(self, X: Tensor) -> Tensor:
+    def forward(
+        self, X: Tensor, beta: float = Constants.SIGMOID_SWISH_BETA_DEFAULT
+    ) -> Tensor:
         return X.sigmoid_swish()
 
 
