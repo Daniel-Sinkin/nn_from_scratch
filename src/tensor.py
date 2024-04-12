@@ -164,21 +164,27 @@ class Tensor:
         result._backward = _backward
         return result
 
+    # TODO: Implement this properly instead of using `+ (-1) * ...`
     def __sub__(self, other) -> "Tensor":
         if not isinstance(other, Tensor):
             other = Tensor(other)
 
+        retval: Tensor = self + ((-1) * other)
+        return retval
+
+        """
         result = Tensor(
             self.value - other.value, children=(self, other), grad_fn=Operation.SUB
         )
 
-        # D(f(x) - g(x)) = Df(x) - Dg(x)
+        # D(f - g)(x) = Df(x) - Dg(x)
         def _backward() -> None:
             self.grad = self.grad + result.grad
             other.grad = other.grad - result.grad
 
         result._backward = _backward
         return result
+        """
 
     def __rsub__(self, other) -> "Tensor":
         if not isinstance(other, Tensor):

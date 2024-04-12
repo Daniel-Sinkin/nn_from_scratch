@@ -125,7 +125,6 @@ class Data:
     def __repr__(self) -> str:
         return f"Data(data={self.data}, name={self.name or 'None'})"
 
-
 class StatlearningNames(StrEnum):
     Advertising = "Advertising"
     Auto = "Auto"
