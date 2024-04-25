@@ -69,7 +69,7 @@ class Data:
         self.name: Optional[str] = name
         self.url: Optional[str] = url
         self.data_type: Optional[str] = data_type
-        self.sha256: Optional[str]: = sha256
+        self.sha256: Optional[str] = sha256
 
     def download(self) -> None:
         if self.url is None:
@@ -89,7 +89,9 @@ class Data:
                 self.set_data(np.load(self.url))
             case "pkl":
                 # Also see `pickle_arbitrary_code_example` in the scrapbook folder for a malicious example
-                raise NotImplementedError(".pkl can execute arbitrary code, might not support them at all, see https://huggingface.co/docs/hub/en/security-pickle#")
+                raise NotImplementedError(
+                    ".pkl can execute arbitrary code, might not support them at all, see https://huggingface.co/docs/hub/en/security-pickle#"
+                )
             case _:
                 raise ValueError(f"{self.data_type=} not supported for download.")
 
@@ -124,6 +126,7 @@ class Data:
 
     def __repr__(self) -> str:
         return f"Data(data={self.data}, name={self.name or 'None'})"
+
 
 class StatlearningNames(StrEnum):
     Advertising = "Advertising"

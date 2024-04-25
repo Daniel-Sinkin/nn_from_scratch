@@ -445,7 +445,7 @@ def test_tensor_softmax_by_hand():
 
     pa: torch.Tensor = torch.tensor(x, requires_grad=True)
     pb: torch.Tensor = pa - pa.max(dim=-1, keepdim=True).values
-    pc: torch.Tensor = torch.exp(pb)
+    pc: torch.Tensor = pb.exp()
     pd: torch.Tensor = pc / pc.sum(dim=-1, keepdim=True)
     pe = pd.sum()
     pe.backward()

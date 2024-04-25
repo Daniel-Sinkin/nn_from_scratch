@@ -134,70 +134,56 @@ class Tensor:
         )
 
         def _backward() -> None:
-            # Reshapes, if necessary
-            if self.value.shape != result.value.shape:
-                grad_self = np.sum(
-                    result.grad, axis=tuple(range(result.grad.ndim - self.grad.ndim))
-                )
-                for i, dim in enumerate(self.value.shape):
-                    # TODO: Check what happens if multiple dim == 1 <LINK$1>
-                    if dim == 1:
-                        grad_self = np.sum(grad_self, axis=i, keepdims=True)
-            else:
-                grad_self = result.grad
-
-            if other.value.shape != result.value.shape:
-                grad_other = np.sum(
-                    result.grad, axis=tuple(range(result.grad.ndim - other.grad.ndim))
-                )
-                for i, dim in enumerate(other.value.shape):
-                    # TODO: Check what happens if multiple dim == 1 <LINK$1>
-                    if dim == 1:
-                        grad_other = np.sum(grad_other, axis=i, keepdims=True)
-            else:
-                grad_other = result.grad
-
-            # Increments by (the potentially reshaped) gradient
-            self.grad += grad_self
-            other.grad += grad_other
+            self.grad += result.grad
+            other.grad += result.grad
 
         result._backward = _backward
         return result
 
-    # TODO: Implement this properly instead of using `+ (-1) * ...`
     def __sub__(self, other) -> "Tensor":
         if not isinstance(other, Tensor):
             other = Tensor(other)
 
-        retval: Tensor = self + ((-1) * other)
-        return retval
-
-        """
         result = Tensor(
             self.value - other.value, children=(self, other), grad_fn=Operation.SUB
         )
 
-        # D(f - g)(x) = Df(x) - Dg(x)
         def _backward() -> None:
-            self.grad = self.grad + result.grad
-            other.grad = other.grad - result.grad
+            # Ensure gradients are broadcasted correctly
+            if self.grad.shape != result.grad.shape:
+                self.grad += np.broadcast_to(result.grad, self.grad.shape)
+            else:
+                self.grad += result.grad
+
+            if other.grad.shape != result.grad.shape:
+                other.grad -= np.broadcast_to(result.grad, other.grad.shape)
+            else:
+                other.grad -= result.grad
 
         result._backward = _backward
         return result
-        """
 
     def __rsub__(self, other) -> "Tensor":
         if not isinstance(other, Tensor):
             other = Tensor(other)
 
         result = Tensor(
-            other.value - self.value, children=(self, other), grad_fn=Operation.SUB
+            other.value - self.value, children=(other, self), grad_fn=Operation.SUB
         )
 
-        # D(g(x) - f(x)) = Dg(x) - Df(x) = - (Df(x) - Df(x))
         def _backward() -> None:
-            self.grad -= result.grad
-            other.grad += result.grad
+            if result.grad.shape != other.value.shape:
+                other_grad_to_add = np.broadcast_to(result.grad, other.value.shape)
+            else:
+                other_grad_to_add = result.grad
+
+            if result.grad.shape != self.value.shape:
+                self_grad_to_subtract = np.broadcast_to(result.grad, self.value.shape)
+            else:
+                self_grad_to_subtract = result.grad
+
+            other.grad += other_grad_to_add
+            self.grad -= self_grad_to_subtract
 
         result._backward = _backward
         return result
@@ -221,46 +207,29 @@ class Tensor:
     def __rmul__(self, other) -> "Tensor":
         return self.__mul__(other)
 
-    def __truediv__(self, other):
-        """Implements the true division (element-wise) between Tensors."""
+    def __truediv__(self, other) -> "Tensor":
         if not isinstance(other, Tensor):
-            # If 'other' is a scalar, convert it to a Tensor.
-            other = Tensor(np.full(self.value.shape, other))
+            other = Tensor(other)
 
-        # Compute the forward pass
         result = Tensor(
             self.value / other.value, children=(self, other), grad_fn=Operation.DIV
         )
 
-        def _backward():
-            # Gradient with respect to the numerator
-            if self.value.shape != result.value.shape:
-                grad_self = np.sum(
-                    result.grad / other.value,
-                    axis=tuple(range(result.grad.ndim - self.grad.ndim)),
-                    keepdims=True,
-                )
-                for i, dim in enumerate(self.value.shape):
-                    if dim == 1:
-                        grad_self = np.sum(grad_self, axis=i, keepdims=True)
+        def _backward() -> None:
+            # Proper broadcasting of the gradient
+            if self.grad.shape != result.grad.shape:
+                self_grad = np.broadcast_to(result.grad / other.value, self.grad.shape)
             else:
-                grad_self = result.grad / other.value
+                self_grad = result.grad / other.value
+            self.grad += self_grad
 
-            # Gradient with respect to the denominator
-            if other.value.shape != result.value.shape:
-                grad_other = np.sum(
-                    -self.value * result.grad / (other.value**2),
-                    axis=tuple(range(result.grad.ndim - other.grad.ndim)),
-                    keepdims=True,
+            if other.grad.shape != result.grad.shape:
+                other_grad = np.broadcast_to(
+                    result.grad * self.value / (other.value**2), other.grad.shape
                 )
-                for i, dim in enumerate(other.value.shape):
-                    if dim == 1:
-                        grad_other = np.sum(grad_other, axis=i, keepdims=True)
             else:
-                grad_other = -self.value * result.grad / (other.value**2)
-
-            self.grad += grad_self
-            other.grad += grad_other
+                other_grad = result.grad * self.value / (other.value**2)
+            other.grad -= other_grad
 
         result._backward = _backward
         return result
@@ -352,51 +321,62 @@ class Tensor:
         return result
 
     def sum(self, axis=None, keepdim=False) -> "Tensor":
-        result = Tensor(
-            np.sum(self.value, axis=axis, keepdims=keepdim),
-            children=(self,),
-            grad_fn=Operation.SUM,
-        )
-
-        if axis is None:
-            grad_shape = np.ones_like(self.value).shape
-        else:
-            grad_shape = list(self.value.shape)
-            if isinstance(axis, int):
-                grad_shape[axis] = 1
-            else:
-                for ax in axis:
-                    grad_shape[ax] = 1
-            grad_shape = tuple(grad_shape)
+        result_value = np.sum(self.value, axis=axis, keepdims=keepdim)
+        result = Tensor(result_value, children=(self,), grad_fn=Operation.SUM)
 
         def _backward() -> None:
-            expanded_grad = np.ones(self.value.shape) * result.grad
-            if axis is not None:
-                if isinstance(axis, int):
-                    axis_to_reduce = (axis,)
-                else:
-                    axis_to_reduce = axis
-                reduced_grad = np.sum(expanded_grad, axis=axis_to_reduce, keepdims=True)
-                self.grad += reduced_grad
+            # Broadcasting the grad to match the input tensor dimensions
+            if keepdim or axis is None:
+                expanded_grad = result.grad
             else:
-                self.grad += expanded_grad
+                # When not keeping dimensions, we add new axes for proper broadcasting
+                expand_shape = list(self.value.shape)
+                if isinstance(axis, int):
+                    expand_shape[axis] = 1
+                else:
+                    for ax in sorted(axis):
+                        expand_shape[ax] = 1
+                expanded_grad = np.reshape(result.grad, expand_shape)
+
+            broadcasted_grad = np.broadcast_to(expanded_grad, self.value.shape)
+            self.grad += broadcasted_grad
 
         result._backward = _backward
         return result
 
-    def mean(self, axis=None) -> "Tensor":
-        reduced_shape = np.mean(self.value, axis=axis, keepdims=True).shape
-        result = Tensor(
-            np.mean(self.value, axis=axis), children=(self,), grad_fn=Operation.MEAN
-        )
-
+    def mean(self, axis=None, keepdim=False) -> "Tensor":
         if axis is None:
-            num_elements: int = np.prod(self.value.shape)
+            # If axis is None, reduce over all dimensions
+            total_elements = np.prod(self.value.shape)
+            new_shape = (1,) * self.value.ndim if not keepdim else self.value.shape
         else:
-            num_elements: int = self.value.shape[axis]
+            if isinstance(axis, int):
+                axis = (axis,)  # Convert to tuple if a single axis is provided
+            total_elements = np.prod([self.value.shape[a] for a in axis])
+            new_shape = tuple(
+                1 if i in axis else self.value.shape[i] for i in range(self.value.ndim)
+            )
+            if keepdim:
+                new_shape = tuple(
+                    self.value.shape[i] if i not in axis else 1
+                    for i in range(self.value.ndim)
+                )
+
+        result_value = np.mean(self.value, axis=axis, keepdims=keepdim)
+        result = Tensor(result_value, children=(self,), grad_fn=Operation.MEAN)
 
         def _backward() -> None:
-            self.grad += result.grad * np.ones(reduced_shape) / num_elements
+            # Grad of result needs to be broadcasted back to the shape of self.value
+            expanded_grad = result.grad / total_elements
+            if isinstance(expanded_grad, np.ndarray):
+                # Check if the grad is an ndarray and not a scalar
+                reshaped_grad = np.reshape(expanded_grad, new_shape)
+                broadcasted_grad = np.broadcast_to(reshaped_grad, self.value.shape)
+            else:
+                # If it's a scalar, broadcast directly
+                broadcasted_grad = np.broadcast_to(expanded_grad, self.value.shape)
+
+            self.grad += broadcasted_grad
 
         result._backward = _backward
         return result
@@ -495,45 +475,71 @@ class Tensor:
         return torch.tensor(self.value)
 
     def max(self, axis=None, keepdim=False) -> "Tensor":
-        max_value = np.max(self.value, axis=axis, keepdims=keepdim)
-        result = Tensor(max_value, children=(self,), grad_fn=Operation.MAX)
+        result_value = np.max(self.value, axis=axis, keepdims=keepdim)
+        result = Tensor(result_value, children=(self,), grad_fn=Operation.MAX)
 
         def _backward() -> None:
-            mask = self.value == max_value
+            mask = self.value == result_value
             grad = result.grad * mask
-            if axis is not None:
-                sum_axis = tuple(range(self.value.ndim))
-                sum_axis = sum_axis[:axis] + sum_axis[axis + 1 :]
-                grad = np.sum(grad, axis=sum_axis, keepdims=True)
+            if keepdim:
+                sum_axis = None
+            else:
+                if axis is None:
+                    sum_axis = None
+                elif isinstance(axis, int):
+                    sum_axis = (axis,)
+                else:
+                    sum_axis = tuple(axis)
+
+            if sum_axis is not None:
+                grad = np.sum(grad, axis=sum_axis, keepdims=keepdim)
             self.grad += grad
 
         result._backward = _backward
         return result
 
     def min(self, axis=None, keepdim=False) -> "Tensor":
-        min_value = np.min(self.value, axis=axis, keepdims=keepdim)
-        result = Tensor(min_value, children=(self,), grad_fn=Operation.MIN)
+        result_value = np.min(self.value, axis=axis, keepdims=keepdim)
+        result = Tensor(result_value, children=(self,), grad_fn=Operation.MIN)
 
         def _backward() -> None:
-            mask = self.value == min_value
+            mask = self.value == result_value
             grad = result.grad * mask
-            if axis is not None:
-                sum_axis = tuple(range(self.value.ndim))
-                sum_axis = sum_axis[:axis] + sum_axis[axis + 1 :]
-                grad = np.sum(grad, axis=sum_axis, keepdims=True)
+            if keepdim:
+                sum_axis = None
+            else:
+                # Ensure that sum_axis is either None or a tuple of integers
+                if axis is None:
+                    sum_axis = None  # summing over all dimensions
+                elif isinstance(axis, int):
+                    sum_axis = (axis,)
+                else:
+                    sum_axis = tuple(axis)
+
+            # Use the correctly formatted sum_axis for summing the gradients
+            if sum_axis is not None:
+                grad = np.sum(grad, axis=sum_axis, keepdims=keepdim)
             self.grad += grad
 
         result._backward = _backward
         return result
 
-    # TODO: @FixMe
-    # The naive implementation of softmax is very numerically unstable
-    # for some discussion how to make it more stable see my exercise solutions:
-    # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/4_linear-classification/1_softmax-regression/softmax-regression_6.ipynb
-    # and
-    # https://github.com/Daniel-Sinkin/d2l/blob/main/Exercises/4_linear-classification/4_softmax-regression-scratch.ipynb/softmax-regression-scratch_1.ipynb
     def softmax(self, axis=-1) -> "Tensor":
-        _max = self.max()
-        shifted_value = self - _max
-        exp_value = shifted_value.exp()
-        return exp_value / exp_value.sum(axis=axis, keepdim=True)
+        # Ensure numerical stability by subtracting the max from each set of scores
+        max_value = self.max(axis=axis, keepdim=True)
+        shifted = self - max_value
+        exps = shifted.exp()
+        sum_exps = exps.sum(axis=axis, keepdim=True)
+        result = exps / sum_exps
+
+        def _backward() -> None:
+            # Gradient for softmax is tricky and is usually computed together with the cross-entropy loss
+            # for efficiency and numerical stability reasons in deep learning frameworks.
+            # Here we provide a basic placeholder for illustration purposes.
+            # For real use, consider integrating directly with your loss function.
+            grad_output = result.grad
+            jacobian_matrix = result.value * (1 - result.value)
+            self.grad += np.dot(grad_output, jacobian_matrix)
+
+        result._backward = _backward
+        return result

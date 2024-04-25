@@ -36,3 +36,5 @@ class Operation(StrEnum):
     MUL = "MUL"
     DIV = "DIV"
     MATMUL = "MATMUL"
+
+    SOFTMAX = "SOFTMAX"
