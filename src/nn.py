@@ -1,6 +1,6 @@
 import numpy as np
 
-from .tensor import Tensor, Operation
+from torch import Tensor
 from .nn_constants import Constants
 
 from abc import ABC, abstractmethod
@@ -37,7 +37,9 @@ class LinearLayer(Module):
         # and we compute X @ W.T + B in R^(m x k) as the forward pass.
         # TODO: Implement fused ADDMUL(x, y, z) = x * y + z operation
         temp = X @ self.weight.T
-        return temp + self.bias if self.bias is not None else temp
+        if self.bias is not None:
+            temp += self.bias
+        return temp
 
     def set_weight(self, W: Tensor | np.ndarray):
         if W.shape != self.weight.shape:
@@ -62,7 +64,7 @@ class LinearLayer(Module):
         if not isinstance(b, Tensor):
             raise TypeError(f"{type(b)=} has to be numpy array or Tensor.")
 
-        # TODO: How should we handle if b already has a gradient? <LINK$2>
+        b.grad = None
         self.bias = b
 
     def __repr__(self):
@@ -147,22 +149,18 @@ class Sigmoid_Swish(Module):
         return X.sigmoid_swish()
 
 
-# TODO: Implement ReductionType Enum instead of doing string comparison
-#       if want to be tricky we could also da startwith "m" and startwith "s"
-#       check as we have the guarantee that reduction is either mean or sum
-#       but that would be silly.
 class MSELoss(Module):
-    def __init__(self, reduction: Literal["mean", "sum"] = "mean"):
-        if reduction not in ("mean", "sum"):
-            raise ValueError(f"{reduction=} is not supported.")
-        self.reduction = reduction
+    """
+    mean_reduction true means we reduce with mean, else with sum.
+    """
+
+    def __init__(self, mean_reduction: bool = False):
+        self.mean_reduction = mean_reduction
 
     def forward(self, y: Tensor, y_hat: Tensor) -> Tensor:
         L2Squared: Tensor = (y - y_hat) ** 2
 
-        if self.reduction == "sum":
+        if self.mean_reduction:
             return L2Squared.sum()
-        elif self.reduction == "mean":
-            return L2Squared.mean()
         else:
-            raise ValueError(f"{self.reduction=} is not supported.")
+            return L2Squared.mean()
