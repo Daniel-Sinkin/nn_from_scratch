@@ -216,7 +216,6 @@ class Tensor:
         )
 
         def _backward() -> None:
-            # Proper broadcasting of the gradient
             if self.grad.shape != result.grad.shape:
                 self_grad = np.broadcast_to(result.grad / other.value, self.grad.shape)
             else:
